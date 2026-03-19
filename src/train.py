@@ -109,13 +109,14 @@ def plot_training_curves(history, save_path):
     plt.close(fig)
 
 
-def train(cfg: Config, strategy="transfer", tag=None):
-    """Full training pipeline.
+def train(cfg: Config, strategy="transfer", tag=None, resume=True):
+    """Full training pipeline with resume support.
 
     Args:
         cfg: Config dataclass.
         strategy: 'transfer' (freeze then finetune), 'scratch' (random init, full train).
         tag: Optional label for saving results (e.g., 'resnet50_transfer').
+        resume: If True, resume from last checkpoint if one exists.
     """
     tag = tag or f"{cfg.model_name}_{strategy}"
     device = torch_directml.device()
@@ -147,8 +148,26 @@ def train(cfg: Config, strategy="transfer", tag=None):
     best_val_auc = -1
     total_epochs = 0
     start_time = time.time()
+    completed_phases = []
 
-    def run_phase(epochs, lr, phase_name):
+    # Resume from checkpoint if available
+    resume_path = ckpt_dir / "resume.pt"
+    resumed_phase_epoch = 0
+    if resume and resume_path.exists():
+        print("Resuming from checkpoint...")
+        ckpt = torch.load(resume_path, weights_only=False, map_location="cpu")
+        model.load_state_dict(ckpt["model_state_dict"])
+        model = model.to(device)
+        history = ckpt["history"]
+        best_val_auc = ckpt["best_val_auc"]
+        total_epochs = ckpt["total_epochs"]
+        completed_phases = ckpt.get("completed_phases", [])
+        resumed_phase_epoch = ckpt.get("phase_epoch", 0)
+        print(f"Resumed at epoch {total_epochs}, best val AUC: {best_val_auc:.4f}, "
+              f"completed phases: {completed_phases}")
+
+    def run_phase(epochs, lr, phase_name, resume_epoch=0, resume_optim_state=None,
+                  resume_scheduler_state=None, resume_early_stop_state=None):
         nonlocal best_val_auc, total_epochs
         optimizer = torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),
@@ -157,8 +176,17 @@ def train(cfg: Config, strategy="transfer", tag=None):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
         early_stop = EarlyStopping(patience=cfg.early_stopping_patience)
 
+        if resume_epoch > 0 and resume_optim_state:
+            optimizer.load_state_dict(resume_optim_state)
+            scheduler.load_state_dict(resume_scheduler_state)
+            early_stop.best_score = resume_early_stop_state["best_score"]
+            early_stop.counter = resume_early_stop_state["counter"]
+
         print(f"\n--- {phase_name} ({epochs} epochs, lr={lr}) ---")
-        for epoch in range(1, epochs + 1):
+        if resume_epoch > 0:
+            print(f"Resuming from epoch {resume_epoch + 1}/{epochs}")
+
+        for epoch in range(resume_epoch + 1, epochs + 1):
             total_epochs += 1
             train_loss, train_auc = train_one_epoch(
                 model, train_loader, criterion, optimizer, device
@@ -179,18 +207,79 @@ def train(cfg: Config, strategy="transfer", tag=None):
                 best_val_auc = val_auc
                 torch.save(model.state_dict(), ckpt_dir / "best.pt")
 
+            # Save resumable checkpoint after every epoch
+            torch.save({
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "scheduler_state_dict": scheduler.state_dict(),
+                "early_stop_state": {
+                    "best_score": early_stop.best_score,
+                    "counter": early_stop.counter,
+                },
+                "history": history,
+                "best_val_auc": best_val_auc,
+                "total_epochs": total_epochs,
+                "phase_name": phase_name,
+                "phase_epoch": epoch,
+                "completed_phases": completed_phases,
+            }, resume_path)
+
             if early_stop.step(val_auc):
                 print(f"Early stopping at epoch {total_epochs}")
                 break
 
+        completed_phases.append(phase_name)
+
     # Training phases
     if strategy == "transfer":
-        freeze_backbone(model)
-        run_phase(cfg.freeze_epochs, cfg.lr, "Phase 1: Frozen backbone")
-        unfreeze_backbone(model)
-        run_phase(cfg.epochs, cfg.lr_finetune, "Phase 2: Full fine-tune")
+        phase1_name = "Phase 1: Frozen backbone"
+        phase2_name = "Phase 2: Full fine-tune"
+
+        if phase1_name not in completed_phases:
+            freeze_backbone(model)
+            resume_epoch = 0
+            resume_optim = resume_scheduler = resume_early_stop = None
+            if resume and resume_path.exists() and resumed_phase_epoch > 0:
+                ckpt = torch.load(resume_path, weights_only=False, map_location="cpu")
+                if ckpt.get("phase_name") == phase1_name:
+                    resume_epoch = resumed_phase_epoch
+                    resume_optim = ckpt["optimizer_state_dict"]
+                    resume_scheduler = ckpt["scheduler_state_dict"]
+                    resume_early_stop = ckpt["early_stop_state"]
+            run_phase(cfg.freeze_epochs, cfg.lr, phase1_name,
+                      resume_epoch, resume_optim, resume_scheduler, resume_early_stop)
+
+        if phase2_name not in completed_phases:
+            unfreeze_backbone(model)
+            resume_epoch = 0
+            resume_optim = resume_scheduler = resume_early_stop = None
+            if resume and resume_path.exists():
+                ckpt = torch.load(resume_path, weights_only=False, map_location="cpu")
+                if ckpt.get("phase_name") == phase2_name and resumed_phase_epoch > 0:
+                    resume_epoch = resumed_phase_epoch
+                    resume_optim = ckpt["optimizer_state_dict"]
+                    resume_scheduler = ckpt["scheduler_state_dict"]
+                    resume_early_stop = ckpt["early_stop_state"]
+            run_phase(cfg.epochs, cfg.lr_finetune, phase2_name,
+                      resume_epoch, resume_optim, resume_scheduler, resume_early_stop)
     else:
-        run_phase(cfg.epochs, cfg.lr_finetune, "Training from scratch")
+        phase_name = "Training from scratch"
+        if phase_name not in completed_phases:
+            resume_epoch = 0
+            resume_optim = resume_scheduler = resume_early_stop = None
+            if resume and resume_path.exists() and resumed_phase_epoch > 0:
+                ckpt = torch.load(resume_path, weights_only=False, map_location="cpu")
+                if ckpt.get("phase_name") == phase_name:
+                    resume_epoch = resumed_phase_epoch
+                    resume_optim = ckpt["optimizer_state_dict"]
+                    resume_scheduler = ckpt["scheduler_state_dict"]
+                    resume_early_stop = ckpt["early_stop_state"]
+            run_phase(cfg.epochs, cfg.lr_finetune, phase_name,
+                      resume_epoch, resume_optim, resume_scheduler, resume_early_stop)
+
+    # Clean up resume checkpoint after successful completion
+    if resume_path.exists():
+        resume_path.unlink()
 
     elapsed = time.time() - start_time
     print(f"\nTraining complete in {elapsed/60:.1f} min | Best val AUC: {best_val_auc:.4f}")

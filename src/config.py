@@ -8,8 +8,8 @@ from typing import Optional
 class Config:
     # Data
     data_dir: str = "data"
-    batch_size: int = 32
-    num_workers: int = 4
+    batch_size: int = 64
+    num_workers: int = 2
     val_ratio: float = 0.1
     test_ratio: float = 0.1
     seed: int = 42

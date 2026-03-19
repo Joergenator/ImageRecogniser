@@ -91,11 +91,11 @@ def create_dataloaders(data_dir, batch_size=32, num_workers=4,
     test_ds = ImageDataset(test_paths, test_labels, transform=get_eval_transforms())
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
-                              num_workers=num_workers, pin_memory=True)
+                              num_workers=num_workers, pin_memory=False)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False,
-                            num_workers=num_workers, pin_memory=True)
+                            num_workers=num_workers, pin_memory=False)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False,
-                             num_workers=num_workers, pin_memory=True)
+                             num_workers=num_workers, pin_memory=False)
 
     print(f"Dataset splits — Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
     return train_loader, val_loader, test_loader
