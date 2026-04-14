@@ -13,7 +13,6 @@ import torch.nn as nn
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 
-import torch_directml
 from src.config import Config
 from src.dataset import create_dataloaders
 from src.models import create_model, freeze_backbone, unfreeze_backbone
@@ -119,7 +118,7 @@ def train(cfg: Config, strategy="transfer", tag=None, resume=True):
         resume: If True, resume from last checkpoint if one exists.
     """
     tag = tag or f"{cfg.model_name}_{strategy}"
-    device = torch_directml.device()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\n{'='*60}")
     print(f"Training: {tag} | Device: {device}")
     print(f"{'='*60}")
