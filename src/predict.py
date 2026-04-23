@@ -60,7 +60,7 @@ MODEL_REGISTRY: dict[str, ModelSpec] = {
     ),
 }
 
-WEIGHTS_REPO_DEFAULT = "joergentro/imagerecogniser-weights"
+WEIGHTS_REPO_DEFAULT = "Joergenator/imagerecogniser-weights"
 
 _EVAL_TRANSFORM = get_eval_transforms()
 
