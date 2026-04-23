@@ -1,9 +1,11 @@
-torch
-torchvision
-timm
+torch>=2.4,<3
+torchvision>=0.19,<1
+timm>=1.0,<2
+streamlit>=1.38,<2
+huggingface_hub>=0.24,<1
+pillow
+numpy
 scikit-learn
 matplotlib
 tqdm
-pillow
-numpy
 pandas

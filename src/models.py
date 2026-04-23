@@ -43,6 +43,14 @@ def create_model(model_name="resnet50", pretrained=True, dropout=0.3, modified=F
 
     if modified and model_name == "resnet50":
         _replace_relu_with_gelu(model)
+        in_features = model.get_classifier().in_features
+        hidden = in_features // 2
+        model.fc = nn.Sequential(
+            nn.Linear(in_features, hidden),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden, 1),
+        )
 
     return model
 
