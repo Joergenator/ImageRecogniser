@@ -53,7 +53,7 @@ def collect_image_paths(data_dir):
 
 def create_dataloaders(data_dir, batch_size=32, num_workers=4,
                        val_ratio=0.1, test_ratio=0.1, seed=42,
-                       max_samples=None):
+                       max_samples=None, augment_level="standard"):
     """Create train, validation, and test DataLoaders.
 
     Splits: 80% train, 10% val, 10% test (stratified).
@@ -86,7 +86,7 @@ def create_dataloaders(data_dir, batch_size=32, num_workers=4,
         random_state=seed,
     )
 
-    train_ds = ImageDataset(train_paths, train_labels, transform=get_train_transforms())
+    train_ds = ImageDataset(train_paths, train_labels, transform=get_train_transforms(augment_level))
     val_ds = ImageDataset(val_paths, val_labels, transform=get_eval_transforms())
     test_ds = ImageDataset(test_paths, test_labels, transform=get_eval_transforms())
 

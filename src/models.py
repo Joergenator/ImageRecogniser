@@ -11,13 +11,22 @@ SUPPORTED_MODELS = {
 }
 
 
-def create_model(model_name="resnet50", pretrained=True, dropout=0.3):
+def _replace_relu_with_gelu(module):
+    for name, child in module.named_children():
+        if isinstance(child, nn.ReLU):
+            setattr(module, name, nn.GELU())
+        else:
+            _replace_relu_with_gelu(child)
+
+
+def create_model(model_name="resnet50", pretrained=True, dropout=0.3, modified=False):
     """Create a binary classification model.
 
     Args:
         model_name: One of 'resnet50', 'densenet121', 'vit_base_patch16_224'.
         pretrained: Use ImageNet-pretrained weights.
         dropout: Dropout rate before the final classifier.
+        modified: If True, replace ReLU with GELU in ResNet-50.
 
     Returns:
         model: nn.Module with a single-output (sigmoid) head.
@@ -31,6 +40,9 @@ def create_model(model_name="resnet50", pretrained=True, dropout=0.3):
         num_classes=1,
         drop_rate=dropout,
     )
+
+    if modified and model_name == "resnet50":
+        _replace_relu_with_gelu(model)
 
     return model
 

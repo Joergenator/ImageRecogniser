@@ -128,14 +128,23 @@ def train(cfg: Config, strategy="transfer", tag=None, resume=True):
         cfg.data_dir, cfg.batch_size, cfg.num_workers,
         cfg.val_ratio, cfg.test_ratio, cfg.seed,
         max_samples=cfg.max_samples,
+        augment_level=cfg.augment_level,
     )
 
     # Model
     pretrained = strategy == "transfer"
-    model = create_model(cfg.model_name, pretrained=pretrained, dropout=cfg.dropout)
+    model = create_model(cfg.model_name, pretrained=pretrained, dropout=cfg.dropout,
+                         modified=cfg.modified)
     model = model.to(device)
 
-    criterion = nn.BCEWithLogitsLoss()
+    base_criterion = nn.BCEWithLogitsLoss()
+    if cfg.label_smoothing > 0:
+        eps = cfg.label_smoothing
+        def criterion(logits, targets):
+            smoothed = targets * (1 - eps) + (1 - targets) * eps
+            return base_criterion(logits, smoothed)
+    else:
+        criterion = base_criterion
 
     # Directories
     ckpt_dir = Path(cfg.checkpoint_dir) / tag
