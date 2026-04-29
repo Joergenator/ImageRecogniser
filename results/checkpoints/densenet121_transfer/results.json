@@ -1,0 +1,15 @@
+{
+  "tag": "densenet121_transfer",
+  "model": "densenet121",
+  "strategy": "transfer",
+  "best_val_auc": 0.9864331597222223,
+  "test_metrics": {
+    "auc": 0.9853970486111111,
+    "accuracy": 0.9416666666666667,
+    "precision": 0.9333605887162715,
+    "recall": 0.95125,
+    "f1": 0.9422203879488238
+  },
+  "total_epochs": 32,
+  "training_time_min": 704.9
+}

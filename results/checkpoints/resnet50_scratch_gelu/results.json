@@ -1,0 +1,15 @@
+{
+  "tag": "resnet50_scratch_gelu",
+  "model": "resnet50",
+  "strategy": "scratch",
+  "best_val_auc": 0.9360529513888887,
+  "test_metrics": {
+    "auc": 0.9348887152777777,
+    "accuracy": 0.8570833333333333,
+    "precision": 0.8334630350194553,
+    "recall": 0.8925,
+    "f1": 0.8619718309859155
+  },
+  "total_epochs": 40,
+  "training_time_min": 127.8
+}

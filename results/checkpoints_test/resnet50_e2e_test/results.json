@@ -1,0 +1,15 @@
+{
+  "tag": "resnet50_e2e_test",
+  "model": "resnet50",
+  "strategy": "transfer",
+  "best_val_auc": 0.8016,
+  "test_metrics": {
+    "auc": 0.8592,
+    "accuracy": 0.76,
+    "precision": 0.782608695652174,
+    "recall": 0.72,
+    "f1": 0.75
+  },
+  "total_epochs": 3,
+  "training_time_min": 1.5
+}
