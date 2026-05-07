@@ -16,6 +16,8 @@ Course project for **DAT255 — Deep Learning Engineering**. Given an uploaded i
 
 ## Try it
 
+https://huggingface.co/spaces/Joergenator/imagerecogniser
+
 Pick a model from the dropdown, upload a JPG/PNG/WebP, and the app returns the probability that the image is AI-generated.
 
 ## Models
